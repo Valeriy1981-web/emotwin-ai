@@ -1,6 +1,1 @@
 Flask==2.3.3
-torch>=2.5.0
-transformers>=4.30.0
-sentencepiece
-filelock
-numpy
