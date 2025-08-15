@@ -1,4 +1,6 @@
 Flask==2.3.3
-transformers==4.30.0
-torch==2.0.1
-sqlite3
+torch>=2.5.0
+transformers>=4.30.0
+sentencepiece
+filelock
+numpy
