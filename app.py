@@ -1,16 +1,11 @@
-# app.py — EmoTwin MVP (Flask + Hugging Face)
+# app.py — Лёгкая версия EmoTwin (без torch и transformers)
+
 from flask import Flask, request, jsonify
-from transformers import pipeline
 import sqlite3
 import os
+import random
 
 app = Flask(__name__)
-
-# Загружаем модель анализа эмоций
-try:
-    sentiment_pipeline = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment-latest")
-except:
-    sentiment_pipeline = None
 
 # Инициализация БД
 def init_db():
@@ -23,6 +18,22 @@ def init_db():
 
 init_db()
 
+# Простой "анализ" на основе ключевых слов
+def simple_emotion_detector(text):
+    text = text.lower()
+    positive = ['рад', 'счастье', 'люблю', 'класс', 'отлично', 'круто', 'хорошо', 'свет']
+    negative = ['груст', 'плохо', 'ужас', 'ненавижу', 'боль', 'страх', 'тоска', 'одиноко']
+    
+    pos_count = sum(1 for word in positive if word in text)
+    neg_count = sum(1 for word in negative if word in text)
+    
+    if pos_count > neg_count:
+        return "POSITIVE", round(0.5 + random.random() * 0.5, 3)
+    elif neg_count > pos_count:
+        return "NEGATIVE", round(0.5 + random.random() * 0.5, 3)
+    else:
+        return "NEUTRAL", 0.5
+
 @app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.json
@@ -31,13 +42,8 @@ def analyze():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    if sentiment_pipeline:
-        result = sentiment_pipeline(text)[0]
-        label = result['label']
-        score = result['score']
-    else:
-        label, score = "NEUTRAL", 0.5
-
+    label, score = simple_emotion_detector(text)
+    
     # Сохраняем
     conn = sqlite3.connect('emotions.db')
     c = conn.cursor()
@@ -51,12 +57,13 @@ def analyze():
 def chat():
     user_input = request.json.get('message', '').lower()
     
-    # Простой логик-ответ на основе ключевых слов
     responses = {
         "грустно": "Раньше ты говорил: «Даже в темноте я находил свет».",
         "устал": "Ты уже прошёл 70% пути. Остановись, но не сдавайся.",
         "не знаю": "Давай вспомним, что ты чувствовал в моменты решений?",
         "скучаю": "Ты оставил много тёплых слов самому себе. Хочешь их услышать?",
+        "рад": "Ты знаешь, как радоваться. Сохрани этот момент.",
+        "боюсь": "Страх — это знак, что ты выходишь из зоны комфорта. Это рост."
     }
     
     for key, resp in responses.items():
@@ -70,5 +77,5 @@ def health():
     return jsonify({"status": "ok"}), 200
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))  # Render передаёт PORT через переменную окружения
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
