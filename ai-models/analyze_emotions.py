@@ -1,18 +1,42 @@
 import os
 import json
+import logging
 from openai import OpenAI
+from typing import Dict, Union
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
-def analyze_text_emotions(text: str) -> dict:
+# Улучшенная инициализация клиента OpenAI
+def get_openai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        logging.error("OPENAI_API_KEY не установлен")
+        raise ValueError("OPENAI_API_KEY не установлен")
+    return OpenAI(api_key=api_key)
+
+client = get_openai_client()
+
+def analyze_text_emotions(text: str) -> Union[Dict[str, float], Dict[str, str]]:
     """
-    Анализирует эмоции в тексте через GPT-4o
-    Возвращает словарь с уровнями эмоций (0.0-1.0)
+    Анализирует эмоции в тексте через OpenAI API
+    
+    Args:
+        text (str): Текст для анализа
+        
+    Returns:
+        dict: Словарь с уровнями эмоций (0.0-1.0) или сообщение об ошибке
     """
+    logging.info(f"Получен текст для анализа длиной {len(text)} символов")
+    
     if not text.strip():
+        logging.warning("Получен пустой текст")
         return {"error": "Пустой текст"}
     
-    # Ограничение длины
+    # Ограничение длины текста
     max_length = 2000
     truncated_text = text[:max_length] + ("..." if len(text) > max_length else "")
     
@@ -29,14 +53,29 @@ def analyze_text_emotions(text: str) -> dict:
                     "content": truncated_text
                 }
             ],
-            response_format={ "type": "json_object" },
+            response_format={"type": "json_object"},
             temperature=0.2
         )
         
-        # Парсим JSON из ответа
-        return json.loads(response.choices[0].message.content)
-    
+        # Обработка ответа
+        try:
+            result = json.loads(response.choices[0].message.content)
+            
+            # Проверка корректности ответа
+            required_keys = ["joy", "sadness", "anger", "fear", "surprise", "love", "disgust"]
+            if not all(key in result for key in required_keys):
+                logging.error("Получен некорректный формат ответа от API")
+                raise ValueError("Некорректный формат ответа")
+            
+            logging.info("Успешно получен анализ эмоций")
+            return result
+            
+        except json.JSONDecodeError:
+            logging.error("Ошибка парсинга JSON ответа")
+            raise ValueError("Ошибка парсинга JSON")
+            
     except Exception as e:
+        logging.error(f"Произошла ошибка: {str(e)}")
         return {
             "error": str(e),
             "fallback": {
