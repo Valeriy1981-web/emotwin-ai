@@ -1,5 +1,5 @@
-# app.py - EmoTwin AI (Production-ready)
-from flask import Flask, request, jsonify
+# app.py - EmoTwin AI (FastAPI, Production-ready)
+from fastapi import FastAPI, HTTPException
 from transformers import pipeline
 import logging
 import os
@@ -8,14 +8,14 @@ import os
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = FastAPI(title="EmoTwin AI", version="1.0")
 
 # Глобальная переменная для модели
 sentiment_pipeline = None
 
-@app.before_first_request
+@app.on_event("startup")
 def load_model():
-    """Загружаем модель при первом запросе"""
+    """Загружаем модель при старте приложения"""
     global sentiment_pipeline
     try:
         logger.info("Загрузка модели анализа эмоций...")
@@ -28,32 +28,31 @@ def load_model():
         logger.error(f"❌ Ошибка загрузки модели: {e}")
         sentiment_pipeline = None
 
-@app.route('/health', methods=['GET'])
+@app.get("/health")
 def health():
     """Health check endpoint"""
-    return jsonify({
+    return {
         "status": "ok",
         "model_loaded": sentiment_pipeline is not None,
         "env": os.environ.get("ENV", "development")
-    }), 200
+    }
 
-@app.route('/analyze', methods=['POST'])
-def analyze():
+@app.post("/analyze")
+def analyze(data: dict):
     """Анализ эмоций в тексте"""
-    data = request.get_json()
-    if not data or 'text' not in 
-        return jsonify({"error": "Поле 'text' обязательно"}), 400
+    if not data or 'text' not in data:
+        raise HTTPException(status_code=400, detail="Поле 'text' обязательно")
 
     text = data['text'].strip()
     if not text:
-        return jsonify({"error": "Текст не может быть пустым"}), 400
+        raise HTTPException(status_code=400, detail="Текст не может быть пустым")
 
     if not sentiment_pipeline:
-        return jsonify({
+        return {
             "label": "NEUTRAL",
             "score": 0.5,
             "warning": "Модель не загружена, используется заглушка"
-        }), 200
+        }
 
     try:
         result = sentiment_pipeline(text)[0]
@@ -68,21 +67,20 @@ def analyze():
         }
         normalized_label = label_map.get(label, label)
 
-        return jsonify({
+        return {
             "label": normalized_label,
             "score": round(score, 4),
             "text_preview": text[:50] + "..." if len(text) > 50 else text
-        })
+        }
     except Exception as e:
         logger.error(f"Ошибка при анализе: {e}")
-        return jsonify({"error": "Не удалось проанализировать текст"}), 500
+        raise HTTPException(status_code=500, detail="Не удалось проанализировать текст")
 
-@app.route('/chat', methods=['POST'])
-def chat():
+@app.post("/chat")
+def chat(data: dict):
     """Чат с EmoTwin (эмоциональный отклик)"""
-    data = request.get_json()
-    if not data or 'message' not in 
-        return jsonify({"error": "Поле 'message' обязательно"}), 400
+    if not data or 'message' not in data:
+        raise HTTPException(status_code=400, detail="Поле 'message' обязательно")
 
     message = data['message'].lower().strip()
 
@@ -98,14 +96,8 @@ def chat():
 
     for keyword, response in responses.items():
         if keyword in message:
-            return jsonify({"response": response})
+            return {"response": response}
 
-    return jsonify({
+    return {
         "response": "Я слышу тебя. Расскажи чуть больше — я хочу понять."
-    })
-
-if __name__ == '__main__':
-    # Важно: bind to 0.0.0.0 and use PORT env var
-    port = int(os.environ.get('PORT', 10000))
-    logger.info(f"Запуск сервера на порту {port}")
-    app.run(host='0.0.0.0', port=port)
+    }
