@@ -4,28 +4,21 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-*.egg-info/
-.installed.cfg
-*.egg
 
 # Virtual Environment
 venv/
 env/
 ENV/
+.venv/
 
-# IDE
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDEs
 .idea/
 .vscode/
 *.swp
@@ -40,7 +33,7 @@ ENV/
 logs/
 *.log
 
-# Data (кроме сэмплов)
+# Data
 /data/raw/
 /data/processed/
 
@@ -50,7 +43,53 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS
+# OS-specific files
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Cache files
+*.cache
+*.tmp
+
+# Temporary files
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# PyTest
+.pytest_cache/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Static files
+static/
+
+# Media files
+media/
+
+# Database files
+*.db
+*.sqlite
+
+# Backup files
+*.bak
+*.backup
+
+# Sensitive files
+credentials.json
+secrets.json
+
+# Editor-specific files
+*.code-workspace
+.history/
