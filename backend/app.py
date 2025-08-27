@@ -1,17 +1,32 @@
-# app.py - EmoTwin AI (FastAPI, Production-ready)
 from fastapi import FastAPI, HTTPException
 from transformers import pipeline
 import logging
 import os
+from pydantic import BaseModel
+from typing import Dict, Any
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
+# Улучшенная настройка логирования
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="EmoTwin AI", version="1.0")
+app = FastAPI(
+    title="EmoTwin AI",
+    version="1.0",
+    description="API для анализа эмоций и эмоционального отклика"
+)
 
 # Глобальная переменная для модели
 sentiment_pipeline = None
+
+# Добавление модели запроса для валидации
+class TextInput(BaseModel):
+    text: str
+
+class ChatInput(BaseModel):
+    message: str
 
 @app.on_event("startup")
 def load_model():
@@ -34,16 +49,15 @@ def health():
     return {
         "status": "ok",
         "model_loaded": sentiment_pipeline is not None,
-        "env": os.environ.get("ENV", "development")
+        "env": os.environ.get("ENV", "development"),
+        "version": app.version
     }
 
 @app.post("/analyze")
-def analyze(data: dict):
+def analyze(data: TextInput):
     """Анализ эмоций в тексте"""
-    if not data or 'text' not in data:
-        raise HTTPException(status_code=400, detail="Поле 'text' обязательно")
-
-    text = data['text'].strip()
+    text = data.text.strip()
+    
     if not text:
         raise HTTPException(status_code=400, detail="Текст не может быть пустым")
 
@@ -59,7 +73,7 @@ def analyze(data: dict):
         label = result['label']
         score = result['score']
 
-        # Нормализуем метки
+        # Нормализация меток
         label_map = {
             "LABEL_0": "NEGATIVE",
             "LABEL_1": "NEUTRAL",
@@ -77,12 +91,9 @@ def analyze(data: dict):
         raise HTTPException(status_code=500, detail="Не удалось проанализировать текст")
 
 @app.post("/chat")
-def chat(data: dict):
+def chat(data: ChatInput):
     """Чат с EmoTwin (эмоциональный отклик)"""
-    if not data or 'message' not in data:
-        raise HTTPException(status_code=400, detail="Поле 'message' обязательно")
-
-    message = data['message'].lower().strip()
+    message = data.message.lower().strip()
 
     responses = {
         "грустно": "Раньше ты говорил: «Даже в темноте я находил свет».",
@@ -101,3 +112,12 @@ def chat(data: dict):
     return {
         "response": "Я слышу тебя. Расскажи чуть больше — я хочу понять."
     }
+
+# Добавление документации
+@app.get("/docs")
+async def get_docs():
+    return {"message": "Документация доступна по /docs"}
+
+# Улучшения:
+# 1. Добавлена валидация входных данных через Pydantic
+#
