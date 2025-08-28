@@ -36,7 +36,7 @@ app.add_middleware(
 # Создание директории для загрузок
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@app.get("/", response_model=Dict[str, Union[str, datetime]])
+@app.get("/", response_model=Dict[str, str])
 def health_check():
     """
     Проверка работоспособности API
@@ -48,4 +48,32 @@ def health_check():
         "timestamp": datetime.utcnow().isoformat()
     }
 
-@app.
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Загрузка файла (текст, голос, фото)
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Файл без имени")
+
+    # Проверка расширения
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Неподдерживаемый формат")
+
+    # Проверка размера
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="Файл слишком большой")
+
+    # Сохранение
+    filename = f"{uuid.uuid4()}{ext}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    return {
+        "filename": filename,
+        "size": len(content),
+        "message": "Файл успешно загружен"
+    }
